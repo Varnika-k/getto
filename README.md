@@ -43,7 +43,7 @@ A complete end-to-end Firebase Cloud Messaging (FCM) push notification system wi
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/yourusername/fcm-push-notification-system.git
+   git clone https://github.com/Varnika-k/fcm-push-notification-system.git
    cd fcm-push-notification-system
    ```
 
@@ -248,8 +248,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Support
 
 For support and questions:
-- Open an [Issue](https://github.com/yourusername/fcm-push-notification-system/issues)
-- Check [Documentation](https://github.com/yourusername/fcm-push-notification-system/wiki)
+- Open an [Issue](https://github.com/Varnika-k/fcm-push-notification-system/issues)
+- Check [Documentation](https://github.com/Varnika-k/fcm-push-notification-system/wiki)
 - Review [Setup Guides](./START_HERE.md)
 
 ---
