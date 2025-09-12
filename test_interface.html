@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FCM Push Notification Tester</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+        .status.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .status.info { background: #cce7ff; color: #004085; border: 1px solid #b8daff; }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        textarea {
+            height: 80px;
+            resize: vertical;
+        }
+        
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+            transition: background 0.3s;
+        }
+        .btn:hover { background: #0056b3; }
+        .btn.secondary { background: #6c757d; }
+        .btn.secondary:hover { background: #545b62; }
+        .btn.success { background: #28a745; }
+        .btn.success:hover { background: #1e7e34; }
+        
+        .notification-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .notification-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            background: #f8f9fa;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .notification-card:hover {
+            border-color: #007bff;
+            background: #e3f2fd;
+        }
+        .notification-card.selected {
+            border-color: #007bff;
+            background: #e3f2fd;
+        }
+        
+        .response {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .steps {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 FCM Push Notification Tester</h1>
+            <p>Test your Firebase Cloud Messaging setup</p>
+        </div>
+
+        <div id="serverStatus" class="status info">
+            🔄 Checking server status...
+        </div>
+
+        <div class="steps">
+            <h3>📋 Quick Steps:</h3>
+            <ol>
+                <li><strong>Get your FCM token</strong> from your Android app (check logs/logcat)</li>
+                <li><strong>Paste the token</strong> in the field below</li>
+                <li><strong>Register your device</strong> with the server</li>
+                <li><strong>Select a notification</strong> and send it!</li>
+            </ol>
+        </div>
+
+        <!-- Step 1: FCM Token Input -->
+        <div class="form-group">
+            <label for="fcmToken">📱 Your FCM Token:</label>
+            <textarea id="fcmToken" placeholder="Paste your FCM token here (e.g., from Android app logs)..."></textarea>
+        </div>
+
+        <!-- Step 2: Device Registration -->
+        <div class="form-group">
+            <label for="deviceId">📱 Device ID (optional):</label>
+            <input type="text" id="deviceId" value="web_tester" placeholder="web_tester">
+        </div>
+        
+        <button class="btn success" onclick="registerDevice()">
+            📝 Register Device
+        </button>
+        <button class="btn secondary" onclick="checkDevices()">
+            👀 Check Registered Devices
+        </button>
+
+        <!-- Step 3: Notification Selection -->
+        <h3>📬 Available Notifications:</h3>
+        <div id="notificationGrid" class="notification-grid">
+            <!-- Will be populated by JavaScript -->
+        </div>
+        
+        <!-- Step 4: Custom Notification -->
+        <h3>✏️ Send Custom Notification:</h3>
+        <div class="form-group">
+            <label for="customTitle">Title:</label>
+            <input type="text" id="customTitle" value="Test Notification">
+        </div>
+        <div class="form-group">
+            <label for="customBody">Message:</label>
+            <textarea id="customBody">This is a test notification from the web interface!</textarea>
+        </div>
+        
+        <button class="btn" onclick="sendCustomNotification()">
+            🚀 Send Custom Notification
+        </button>
+        <button class="btn secondary" onclick="sendSelectedNotification()">
+            📤 Send Selected Notification
+        </button>
+
+        <!-- Response Display -->
+        <div id="response" class="response" style="display:none;"></div>
+    </div>
+
+    <script>
+        const SERVER_URL = 'http://localhost:5000';
+        let selectedNotificationId = 1;
+        let availableNotifications = [];
+
+        // Check server status on load
+        window.addEventListener('load', function() {
+            checkServerStatus();
+            loadNotifications();
+        });
+
+        async function checkServerStatus() {
+            try {
+                const response = await fetch(SERVER_URL + '/');
+                const data = await response.json();
+                
+                if (data.firebase_status === 'initialized') {
+                    showStatus('✅ Server is running and Firebase is initialized!', 'success');
+                } else {
+                    showStatus('⚠️ Server is running but Firebase is not initialized', 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Cannot connect to server at ' + SERVER_URL, 'error');
+            }
+        }
+
+        async function loadNotifications() {
+            try {
+                const response = await fetch(SERVER_URL + '/notifications');
+                const data = await response.json();
+                availableNotifications = data.notifications;
+                renderNotifications();
+            } catch (error) {
+                console.error('Failed to load notifications:', error);
+            }
+        }
+
+        function renderNotifications() {
+            const grid = document.getElementById('notificationGrid');
+            grid.innerHTML = '';
+            
+            availableNotifications.forEach(notif => {
+                const card = document.createElement('div');
+                card.className = 'notification-card';
+                card.onclick = () => selectNotification(notif.id);
+                card.innerHTML = `
+                    <h4>${notif.title}</h4>
+                    <p>${notif.body}</p>
+                    <small>Priority: ${notif.metadata.priority}</small>
+                `;
+                if (notif.id === selectedNotificationId) {
+                    card.classList.add('selected');
+                }
+                grid.appendChild(card);
+            });
+        }
+
+        function selectNotification(id) {
+            selectedNotificationId = id;
+            renderNotifications();
+        }
+
+        async function registerDevice() {
+            const fcmToken = document.getElementById('fcmToken').value.trim();
+            const deviceId = document.getElementById('deviceId').value.trim();
+            
+            if (!fcmToken) {
+                showStatus('❌ Please enter your FCM token first', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(SERVER_URL + '/register-device', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fcm_token: fcmToken,
+                        device_id: deviceId
+                    })
+                });
+                
+                const data = await response.json();
+                showResponse(data);
+                
+                if (response.ok) {
+                    showStatus(`✅ Device "${deviceId}" registered successfully!`, 'success');
+                } else {
+                    showStatus('❌ Device registration failed', 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Registration failed: ' + error.message, 'error');
+            }
+        }
+
+        async function checkDevices() {
+            try {
+                const response = await fetch(SERVER_URL + '/devices');
+                const data = await response.json();
+                showResponse(data);
+            } catch (error) {
+                showStatus('❌ Failed to check devices: ' + error.message, 'error');
+            }
+        }
+
+        async function sendSelectedNotification() {
+            const fcmToken = document.getElementById('fcmToken').value.trim();
+            
+            if (!fcmToken) {
+                showStatus('❌ Please enter your FCM token first', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(SERVER_URL + '/send-notification', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        notification_id: selectedNotificationId,
+                        target_token: fcmToken
+                    })
+                });
+                
+                const data = await response.json();
+                showResponse(data);
+                
+                if (response.ok && data.successful_sends > 0) {
+                    showStatus('🎉 Notification sent successfully! Check your device.', 'success');
+                } else {
+                    showStatus('❌ Notification sending failed', 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Send failed: ' + error.message, 'error');
+            }
+        }
+
+        async function sendCustomNotification() {
+            const fcmToken = document.getElementById('fcmToken').value.trim();
+            const title = document.getElementById('customTitle').value.trim();
+            const body = document.getElementById('customBody').value.trim();
+            
+            if (!fcmToken) {
+                showStatus('❌ Please enter your FCM token first', 'error');
+                return;
+            }
+            
+            if (!title || !body) {
+                showStatus('❌ Please enter both title and message', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(SERVER_URL + '/send-notification', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: title,
+                        body: body,
+                        target_token: fcmToken,
+                        metadata: { source: 'web_interface' }
+                    })
+                });
+                
+                const data = await response.json();
+                showResponse(data);
+                
+                if (response.ok && data.successful_sends > 0) {
+                    showStatus('🎉 Custom notification sent successfully!', 'success');
+                } else {
+                    showStatus('❌ Custom notification sending failed', 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Send failed: ' + error.message, 'error');
+            }
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('serverStatus');
+            statusDiv.textContent = message;
+            statusDiv.className = 'status ' + type;
+        }
+
+        function showResponse(data) {
+            const responseDiv = document.getElementById('response');
+            responseDiv.style.display = 'block';
+            responseDiv.textContent = JSON.stringify(data, null, 2);
+            responseDiv.scrollTop = responseDiv.scrollHeight;
+        }
+    </script>
+</body>
+</html>
