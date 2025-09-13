@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FCM Token Generator for getto-59778</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            color: #333;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #4285f4;
+            margin-bottom: 10px;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-weight: bold;
+            text-align: center;
+        }
+        .status.info { background: #e3f2fd; color: #1976d2; border: 2px solid #bbdefb; }
+        .status.success { background: #e8f5e8; color: #2e7d32; border: 2px solid #c8e6c9; }
+        .status.error { background: #ffebee; color: #c62828; border: 2px solid #ffcdd2; }
+        
+        .btn {
+            background: #4285f4;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.3s;
+            display: block;
+            margin: 20px auto;
+            min-width: 200px;
+        }
+        .btn:hover { 
+            background: #3367d6; 
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(66, 133, 244, 0.4);
+        }
+        .btn:disabled { 
+            background: #ccc; 
+            cursor: not-allowed; 
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .token-display {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+            line-height: 1.6;
+        }
+        
+        .instructions {
+            background: #fff3cd;
+            border: 2px solid #ffeeba;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .copy-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        .copy-btn:hover { background: #218838; }
+        
+        .test-section {
+            background: #f0f8ff;
+            border: 2px solid #b3d9ff;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4285f4;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔥 FCM Token Generator</h1>
+            <p>For Firebase Project: <strong>getto-59778</strong></p>
+        </div>
+
+        <div id="status" class="status info">
+            🔄 Ready to generate your FCM token
+        </div>
+
+        <div class="instructions">
+            <h3>📋 Instructions:</h3>
+            <ol>
+                <li><strong>Enable Notifications:</strong> Your browser will ask for notification permission</li>
+                <li><strong>Generate Token:</strong> Click the button below to get your FCM token</li>
+                <li><strong>Copy Token:</strong> Use the generated token in your server testing</li>
+                <li><strong>Test:</strong> Send yourself a push notification!</li>
+            </ol>
+        </div>
+
+        <button id="generateBtn" class="btn" onclick="requestPermissionAndGetToken()">
+            🚀 Generate FCM Token
+        </button>
+
+        <div id="tokenContainer" style="display: none;">
+            <h3>🎉 Your FCM Token:</h3>
+            <div id="tokenDisplay" class="token-display"></div>
+            <button class="copy-btn" onclick="copyToken()">📋 Copy Token</button>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 Test Your Token:</h3>
+            <p>Once you have your token, test it with your server:</p>
+            <pre style="background: #2d2d2d; color: #fff; padding: 15px; border-radius: 5px; overflow-x: auto;">
+curl -X POST http://localhost:5000/register-device \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fcm_token": "YOUR_TOKEN_HERE",
+    "device_id": "web_browser"
+  }'</pre>
+        </div>
+
+        <div id="permissionStatus" style="margin-top: 20px;"></div>
+    </div>
+
+    <!-- Firebase SDK v9 -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js';
+        import { getMessaging, getToken, onMessage } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging.js';
+
+        // Firebase configuration for getto-59778
+        const firebaseConfig = {
+            apiKey: "PLACEHOLDER_API_KEY",
+            authDomain: "getto-59778.firebaseapp.com",
+            projectId: "getto-59778",
+            storageBucket: "getto-59778.appspot.com",
+            messagingSenderId: "59778",
+            appId: "1:59778:web:demo"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const messaging = getMessaging(app);
+
+        // Make functions global
+        window.requestPermissionAndGetToken = async function() {
+            const btn = document.getElementById('generateBtn');
+            const status = document.getElementById('status');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<div class="loading"></div> Generating...';
+            status.className = 'status info';
+            status.innerHTML = '🔄 Requesting notification permission...';
+
+            try {
+                // Request notification permission
+                const permission = await Notification.requestPermission();
+                
+                if (permission !== 'granted') {
+                    status.className = 'status error';
+                    status.innerHTML = '❌ Notification permission denied. Please enable notifications and try again.';
+                    btn.disabled = false;
+                    btn.innerHTML = '🚀 Generate FCM Token';
+                    return;
+                }
+
+                status.innerHTML = '🔄 Generating FCM token...';
+
+                // Get FCM token
+                const token = await getToken(messaging, {
+                    vapidKey: 'BMxYyBYrKj0RhIXJQR6WBPPcmY7QRWQGJi7dF1zYHJ2Qc8Qk4xKJH3vXNQ9G7qF2L5' // Placeholder VAPID key
+                });
+
+                if (token) {
+                    document.getElementById('tokenDisplay').textContent = token;
+                    document.getElementById('tokenContainer').style.display = 'block';
+                    
+                    status.className = 'status success';
+                    status.innerHTML = '✅ FCM token generated successfully!';
+                    
+                    // Also log to console for easy copying
+                    console.log('FCM Token:', token);
+                } else {
+                    throw new Error('No registration token available.');
+                }
+
+            } catch (err) {
+                console.error('Error getting token:', err);
+                status.className = 'status error';
+                
+                if (err.code === 'messaging/unsupported-browser') {
+                    status.innerHTML = '❌ Your browser doesn\'t support FCM. Try Chrome, Firefox, or Edge.';
+                } else if (err.code === 'messaging/permission-blocked') {
+                    status.innerHTML = '❌ Notification permission blocked. Please enable in browser settings.';
+                } else if (err.message.includes('VAPID')) {
+                    status.innerHTML = '⚠️ VAPID key not configured. Using Firebase Console method instead.';
+                    showFirebaseConsoleMethod();
+                } else {
+                    status.innerHTML = '❌ Error: ' + err.message + '. Try Firebase Console method below.';
+                    showFirebaseConsoleMethod();
+                }
+            }
+
+            btn.disabled = false;
+            btn.innerHTML = '🚀 Generate FCM Token';
+        };
+
+        window.copyToken = function() {
+            const tokenText = document.getElementById('tokenDisplay').textContent;
+            navigator.clipboard.writeText(tokenText).then(() => {
+                const btn = event.target;
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '✅ Copied!';
+                btn.style.background = '#28a745';
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.style.background = '#28a745';
+                }, 2000);
+            });
+        };
+
+        function showFirebaseConsoleMethod() {
+            const container = document.querySelector('.container');
+            const consoleMethod = document.createElement('div');
+            consoleMethod.className = 'instructions';
+            consoleMethod.innerHTML = `
+                <h3>🔥 Alternative: Firebase Console Method</h3>
+                <ol>
+                    <li>Go to <a href="https://console.firebase.google.com" target="_blank">Firebase Console</a></li>
+                    <li>Select project: <strong>getto-59778</strong></li>
+                    <li>Go to <strong>Cloud Messaging</strong> → <strong>Send your first message</strong></li>
+                    <li>Click <strong>Send test message</strong></li>
+                    <li>Use the provided test tokens or device registration tokens</li>
+                </ol>
+                <p><strong>🎯 Your server is ready to receive any valid FCM token!</strong></p>
+            `;
+            container.appendChild(consoleMethod);
+        }
+
+        // Listen for messages when app is in foreground
+        onMessage(messaging, (payload) => {
+            console.log('Message received in foreground:', payload);
+            
+            const status = document.getElementById('status');
+            status.className = 'status success';
+            status.innerHTML = `🎉 Push notification received: ${payload.notification.title}`;
+            
+            // Show browser notification
+            if (Notification.permission === 'granted') {
+                new Notification(payload.notification.title, {
+                    body: payload.notification.body,
+                    icon: '/favicon.ico'
+                });
+            }
+        });
+
+        // Update permission status
+        function updatePermissionStatus() {
+            const permissionDiv = document.getElementById('permissionStatus');
+            const permission = Notification.permission;
+            
+            if (permission === 'granted') {
+                permissionDiv.innerHTML = '<div class="status success">✅ Notifications enabled</div>';
+            } else if (permission === 'denied') {
+                permissionDiv.innerHTML = '<div class="status error">❌ Notifications blocked</div>';
+            } else {
+                permissionDiv.innerHTML = '<div class="status info">🔔 Click button to enable notifications</div>';
+            }
+        }
+
+        // Check permission status on load
+        updatePermissionStatus();
+    </script>
+</body>
+</html>
